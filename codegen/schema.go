@@ -77,7 +77,7 @@ type Property struct {
 	Schema         Schema
 	Required       bool
 	Nullable       bool
-	ExtensionProps *openapi3.ExtensionProps
+	ExtensionProps map[string]interface{}
 }
 
 // GoFieldName returns the Go name of p.
@@ -113,12 +113,13 @@ type Constants struct {
 //
 // Let's use this example schema:
 // components:
-//  schemas:
-//    Person:
-//      type: object
-//      properties:
-//      name:
-//        type: string
+//
+//	schemas:
+//	  Person:
+//	    type: object
+//	    properties:
+//	    name:
+//	      type: string
 type TypeDefinition struct {
 	// The name of the type, eg, type <...> Person
 	TypeName string
@@ -174,8 +175,10 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 		// Convert the reference path to Go type
 		refType, err := RefPathToGoType(sref.Ref)
 		if err != nil {
-			return Schema{}, fmt.Errorf("error turning reference (%s) into a Go type: %s",
-				sref.Ref, err)
+			return Schema{}, fmt.Errorf(
+				"error turning reference (%s) into a Go type: %s",
+				sref.Ref, err,
+			)
 		}
 		return Schema{
 			GoType:      refType,
@@ -222,7 +225,10 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 			if typeDetails.Alias != "" {
 				// we need to set the gotype with the correct import name
 				outSchema.GoType = fmt.Sprintf("%s.%s", typeDetails.Alias, typeDetails.Type)
-				outSchema.CustomImports = append(outSchema.CustomImports, fmt.Sprintf("%s \"%s\"", typeDetails.Alias, typeDetails.Import))
+				outSchema.CustomImports = append(
+					outSchema.CustomImports,
+					fmt.Sprintf("%s \"%s\"", typeDetails.Alias, typeDetails.Import),
+				)
 			} else {
 				// as no alias is provided we need to take the import
 
@@ -233,9 +239,13 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 					typeDetails.Import = splitImport[0]
 				} else {
 					splitImport := strings.Split(typeDetails.Import, "/")
-					outSchema.GoType = fmt.Sprintf("%s.%s", splitImport[len(splitImport)-1], typeDetails.Type)
+					outSchema.GoType = fmt.Sprintf(
+						"%s.%s", splitImport[len(splitImport)-1], typeDetails.Type,
+					)
 				}
-				outSchema.CustomImports = append(outSchema.CustomImports, fmt.Sprintf("\"%s\"", typeDetails.Import))
+				outSchema.CustomImports = append(
+					outSchema.CustomImports, fmt.Sprintf("\"%s\"", typeDetails.Import),
+				)
 			}
 		}
 		return outSchema, nil
@@ -268,7 +278,9 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 				propertyPath := append(path, pName)
 				pSchema, err := GenerateGoSchema(p, propertyPath)
 				if err != nil {
-					return Schema{}, fmt.Errorf("error generating Go schema for property '%s': %w", pName, err)
+					return Schema{}, fmt.Errorf(
+						"error generating Go schema for property '%s': %w", pName, err,
+					)
 				}
 
 				// Check for x-go-optional-value within the object scope; this
@@ -315,7 +327,7 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 					Required:       required,
 					Description:    description,
 					Nullable:       p.Value.Nullable,
-					ExtensionProps: &p.Value.ExtensionProps,
+					ExtensionProps: p.Value.Extensions,
 				}
 				outSchema.Properties = append(outSchema.Properties, prop)
 			}
@@ -324,10 +336,12 @@ func GenerateGoSchema(sref *openapi3.SchemaRef, path []string) (Schema, error) {
 			outSchema.AdditionalPropertiesType = &Schema{
 				GoType: "interface{}",
 			}
-			if schema.AdditionalProperties != nil {
-				additionalSchema, err := GenerateGoSchema(schema.AdditionalProperties, path)
+			if schema.AdditionalProperties.Schema != nil {
+				additionalSchema, err := GenerateGoSchema(schema.AdditionalProperties.Schema, path)
 				if err != nil {
-					return Schema{}, fmt.Errorf("error generating type for additional properties: %w", err)
+					return Schema{}, fmt.Errorf(
+						"error generating type for additional properties: %w", err,
+					)
 				}
 				outSchema.AdditionalPropertiesType = &additionalSchema
 			}
@@ -497,8 +511,8 @@ func GenFieldsFromProperties(props []Property) []string {
 
 		// Support x-omitempty
 		omitEmpty := true
-		if _, ok := p.ExtensionProps.Extensions[extPropOmitEmpty]; ok {
-			if extOmitEmpty, err := extParseBool(p.ExtensionProps.Extensions[extPropOmitEmpty]); err == nil {
+		if _, ok := p.ExtensionProps[extPropOmitEmpty]; ok {
+			if extOmitEmpty, err := extParseBool(p.ExtensionProps[extPropOmitEmpty]); err == nil {
 				omitEmpty = extOmitEmpty
 			}
 		}
@@ -506,7 +520,7 @@ func GenFieldsFromProperties(props []Property) []string {
 		fieldTags := make(map[string]string)
 
 		fieldTags["json"] = p.JSONFieldName
-		if extension, ok := p.ExtensionProps.Extensions[extPropString]; ok {
+		if extension, ok := p.ExtensionProps[extPropString]; ok {
 			if extString, _ := extParseBool(extension); extString {
 				fieldTags["json"] += ",string"
 			}
@@ -514,7 +528,7 @@ func GenFieldsFromProperties(props []Property) []string {
 		if !p.Required && !p.Nullable && omitEmpty {
 			fieldTags["json"] = p.JSONFieldName + ",omitempty"
 		}
-		if extension, ok := p.ExtensionProps.Extensions[extPropExtraTags]; ok {
+		if extension, ok := p.ExtensionProps[extPropExtraTags]; ok {
 			if tags, err := extExtraTags(extension); err == nil {
 				keys := SortedStringKeys(tags)
 				for _, k := range keys {
@@ -548,8 +562,10 @@ func GenStructFromSchema(schema Schema) string {
 			addPropsType = schema.AdditionalPropertiesType.RefType
 		}
 
-		objectParts = append(objectParts,
-			fmt.Sprintf("AdditionalProperties map[string]%s `json:\"-\"`", addPropsType))
+		objectParts = append(
+			objectParts,
+			fmt.Sprintf("AdditionalProperties map[string]%s `json:\"-\"`", addPropsType),
+		)
 	}
 	objectParts = append(objectParts, "}")
 	return strings.Join(objectParts, "\n")
@@ -627,10 +643,14 @@ func GenStructFromAllOf(allOf []*openapi3.SchemaRef, path []string) (string, err
 			if err != nil {
 				return "", err
 			}
-			objectParts = append(objectParts,
-				fmt.Sprintf("   // Embedded struct due to allOf(%s)", ref))
-			objectParts = append(objectParts,
-				fmt.Sprintf("   %s `yaml:\",inline\"`", goType))
+			objectParts = append(
+				objectParts,
+				fmt.Sprintf("   // Embedded struct due to allOf(%s)", ref),
+			)
+			objectParts = append(
+				objectParts,
+				fmt.Sprintf("   %s `yaml:\",inline\"`", goType),
+			)
 		} else {
 			// Inline all the fields from the schema into the output struct,
 			// just like in the simple case of generating an object.
@@ -647,7 +667,9 @@ func GenStructFromAllOf(allOf []*openapi3.SchemaRef, path []string) (string, err
 					addPropsType = goSchema.AdditionalPropertiesType.RefType
 				}
 
-				additionalPropertiesPart := fmt.Sprintf("AdditionalProperties map[string]%s `json:\"-\"`", addPropsType)
+				additionalPropertiesPart := fmt.Sprintf(
+					"AdditionalProperties map[string]%s `json:\"-\"`", addPropsType,
+				)
 				if !StringInArray(additionalPropertiesPart, objectParts) {
 					objectParts = append(objectParts, additionalPropertiesPart)
 				}

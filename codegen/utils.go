@@ -206,10 +206,14 @@ func refPathToGoType(refPath string, local bool) (string, error) {
 		depth := len(pathParts)
 		if local {
 			if depth != 4 {
-				return "", fmt.Errorf("unexpected reference depth: %d for ref: %s local: %t", depth, refPath, local)
+				return "", fmt.Errorf(
+					"unexpected reference depth: %d for ref: %s local: %t", depth, refPath, local,
+				)
 			}
 		} else if depth != 4 && depth != 2 {
-			return "", fmt.Errorf("unexpected reference depth: %d for ref: %s local: %t", depth, refPath, local)
+			return "", fmt.Errorf(
+				"unexpected reference depth: %d for ref: %s local: %t", depth, refPath, local,
+			)
 		}
 		return SchemaNameToTypeName(pathParts[len(pathParts)-1]), nil
 	}
@@ -221,7 +225,10 @@ func refPathToGoType(refPath string, local bool) (string, error) {
 	remoteComponent, flatComponent := pathParts[0], pathParts[1]
 	goImport, ok := importMapping[remoteComponent]
 	if !ok {
-		return "", fmt.Errorf("unrecognized external reference '%s'; please provide the known import for this reference using option --import-mapping", remoteComponent)
+		return "", fmt.Errorf(
+			"unrecognized external reference '%s'; please provide the known import for this reference using option --import-mapping",
+			remoteComponent,
+		)
 	}
 
 	goType, err := refPathToGoType("#"+flatComponent, false)
@@ -253,14 +260,15 @@ func IsWholeDocumentReference(ref string) bool {
 // It replaces all swagger parameters with {param}.
 //
 // Valid input parameters are:
-//   {param}
-//   {param*}
-//   {.param}
-//   {.param*}
-//   {;param}
-//   {;param*}
-//   {?param}
-//   {?param*}
+//
+//	{param}
+//	{param*}
+//	{.param}
+//	{.param*}
+//	{;param}
+//	{;param*}
+//	{?param}
+//	{?param*}
 func SwaggerURIToChiURI(uri string) string {
 	return pathParamRE.ReplaceAllString(uri, "{$1}")
 }
@@ -286,16 +294,20 @@ func ReplacePathParamsWithStr(uri string) string {
 func SortParamsByPath(path string, in []ParameterDefinition) ([]ParameterDefinition, error) {
 	pathParams := OrderedParamsFromURI(path)
 	if len(pathParams) != len(in) {
-		return nil, fmt.Errorf("path '%s' has %d positional parameters, but spec has %d declared",
-			path, len(pathParams), len(in))
+		return nil, fmt.Errorf(
+			"path '%s' has %d positional parameters, but spec has %d declared",
+			path, len(pathParams), len(in),
+		)
 	}
 
 	out := make([]ParameterDefinition, len(in))
 	for i, name := range pathParams {
 		p := ParameterDefinitions(in).FindByName(name)
 		if p == nil {
-			return nil, fmt.Errorf("path '%s' refers to parameter '%s', which doesn't exist in specification",
-				path, name)
+			return nil, fmt.Errorf(
+				"path '%s' refers to parameter '%s', which doesn't exist in specification",
+				path, name,
+			)
 		}
 		out[i] = *p
 	}
@@ -501,11 +513,11 @@ func SchemaNameToTypeName(name string) string {
 // you must specify an additionalProperties type
 // If additionalProperties it true/false, this field will be non-nil.
 func SchemaHasAdditionalProperties(schema *openapi3.Schema) bool {
-	if schema.AdditionalPropertiesAllowed != nil && *schema.AdditionalPropertiesAllowed {
+	if schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has {
 		return true
 	}
 
-	if schema.AdditionalProperties != nil {
+	if schema.AdditionalProperties.Schema != nil {
 		return true
 	}
 	return false

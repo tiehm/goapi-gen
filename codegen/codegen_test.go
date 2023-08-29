@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"go/format"
+	"strings"
 	"testing"
 	"text/template"
 
@@ -42,9 +43,11 @@ func TestExamplePetStoreCodeGeneration(t *testing.T) {
 	assert.Contains(t, code, "// Unique id of the pet")
 
 	// Check that the summary comment contains newlines
-	assert.Contains(t, code, `// Deletes a pet by ID
+	assert.Contains(
+		t, code, `// Deletes a pet by ID
 	// (DELETE /pets/{id})
-`)
+`,
+	)
 
 	// Make sure the generated code is valid:
 	linter := new(lint.Linter)
@@ -341,15 +344,17 @@ func TestGenerateEnumTypes(t *testing.T) {
 		{
 			name: "string",
 
-			types: []TypeDefinition{{
-				JSONName: "my_type",
-				TypeName: "MyType",
-				Schema: Schema{
-					GoType:     "string",
-					RefType:    "string",
-					EnumValues: map[string]string{"some": "value"},
+			types: []TypeDefinition{
+				{
+					JSONName: "my_type",
+					TypeName: "MyType",
+					Schema: Schema{
+						GoType:     "string",
+						RefType:    "string",
+						EnumValues: map[string]string{"some": "value"},
+					},
 				},
-			}},
+			},
 			want: `
 // MyType defines model for my_type.
 type MyType struct {
@@ -383,15 +388,17 @@ func (t *MyType) FromValue(value string) error {
 		{
 			name: "int64",
 
-			types: []TypeDefinition{{
-				JSONName: "my_type",
-				TypeName: "MyType",
-				Schema: Schema{
-					GoType:     "int64",
-					RefType:    "int64",
-					EnumValues: map[string]string{"some": "value"},
+			types: []TypeDefinition{
+				{
+					JSONName: "my_type",
+					TypeName: "MyType",
+					Schema: Schema{
+						GoType:     "int64",
+						RefType:    "int64",
+						EnumValues: map[string]string{"some": "value"},
+					},
 				},
-			}},
+			},
 			want: `
 // MyType defines model for my_type.
 type MyType struct {
@@ -424,18 +431,24 @@ func (t *MyType) FromValue(value int64) error {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			TemplateFunctions["opts"] = func() Options { return Options{} }
-			tmpl := template.New("goapi-gen").Funcs(TemplateFunctions)
-			// This parses all of our own template files into the template object
-			// above
-			tmpl, _ = templates.Parse(tmpl)
+		t.Run(
+			tt.name, func(t *testing.T) {
+				TemplateFunctions["opts"] = func() Options { return Options{} }
+				tmpl := template.New("goapi-gen").Funcs(TemplateFunctions)
+				// This parses all of our own template files into the template object
+				// above
+				tmpl, _ = templates.Parse(tmpl)
 
-			got, err := GenerateEnumTypes(tmpl, tt.types)
-			if (err != nil) != tt.wantErr {
-				assert.NotNil(t, err)
-			}
-			assert.Equal(t, tt.want, got)
-		})
+				got, err := GenerateEnumTypes(tmpl, tt.types)
+				if (err != nil) != tt.wantErr {
+					assert.NotNil(t, err)
+				}
+				// assert.Equal(t, tt.want, got) but ignore LF vs CRLF
+				assert.Equal(
+					t, strings.ReplaceAll(tt.want, "\r\n", "\n"),
+					strings.ReplaceAll(got, "\r\n", "\n"),
+				)
+			},
+		)
 	}
 }

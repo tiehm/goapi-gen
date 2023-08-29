@@ -36,7 +36,7 @@ func walkSwagger(swagger *openapi3.T, doFn func(RefWrapper) (bool, error)) error
 		}
 	}
 
-	walkComponents(&swagger.Components, doFn)
+	walkComponents(swagger.Components, doFn)
 
 	return nil
 }
@@ -145,7 +145,7 @@ func walkSchemaRef(ref *openapi3.SchemaRef, doFn func(RefWrapper) (bool, error))
 		walkSchemaRef(ref, doFn)
 	}
 
-	walkSchemaRef(ref.Value.AdditionalProperties, doFn)
+	walkSchemaRef(ref.Value.AdditionalProperties.Schema, doFn)
 
 	return nil
 }

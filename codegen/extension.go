@@ -20,14 +20,13 @@ type extImportPathDetails struct {
 	Type   string `json:"type"`
 }
 
-
 func extImportPath(extPropValue interface{}) (extImportPathDetails, error) {
 	var details extImportPathDetails
 	raw, ok := extPropValue.(json.RawMessage)
 	if !ok {
 		return details, fmt.Errorf("failed to convert type: %T", extPropValue)
 	}
-	
+
 	var name string
 	if err := json.Unmarshal(raw, &name); err == nil {
 		details.Type = name
@@ -58,9 +57,9 @@ func extParseBool(extPropValue interface{}) (bool, error) {
 }
 
 func extParseAny(extPropValue, target interface{}) error {
-	raw, ok := extPropValue.(json.RawMessage)
-	if !ok {
-		return fmt.Errorf("failed to convert type: %T", extPropValue)
+	raw, err := json.Marshal(extPropValue)
+	if err != nil {
+		return fmt.Errorf("failed to convert type: %T, %v", extPropValue, err)
 	}
 
 	if err := json.Unmarshal(raw, target); err != nil {

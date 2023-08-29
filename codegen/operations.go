@@ -159,8 +159,10 @@ func DescribeParameters(params openapi3.Parameters, path []string) ([]ParameterD
 
 		goType, err := paramToGoType(param, append(path, param.Name))
 		if err != nil {
-			return nil, fmt.Errorf("error generating type for param (%s): %s",
-				param.Name, err)
+			return nil, fmt.Errorf(
+				"error generating type for param (%s): %s",
+				param.Name, err,
+			)
 		}
 
 		pd := ParameterDefinition{
@@ -177,8 +179,10 @@ func DescribeParameters(params openapi3.Parameters, path []string) ([]ParameterD
 		if IsGoTypeReference(paramOrRef.Ref) {
 			goType, err := RefPathToGoType(paramOrRef.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error dereferencing (%s) for param (%s): %s",
-					paramOrRef.Ref, param.Name, err)
+				return nil, fmt.Errorf(
+					"error dereferencing (%s) for param (%s): %s",
+					paramOrRef.Ref, param.Name, err,
+				)
 			}
 			pd.Schema.GoType = goType
 		}
@@ -283,9 +287,14 @@ func (o *OperationDefinition) GetResponseTypeDefinitions() ([]ResponseTypeDefini
 				contentType := responseRef.Value.Content[contentTypeName]
 				// We can only generate a type if we have a schema:
 				if contentType.Schema != nil {
-					responseSchema, err := GenerateGoSchema(contentType.Schema, []string{responseName})
+					responseSchema, err := GenerateGoSchema(
+						contentType.Schema, []string{responseName},
+					)
 					if err != nil {
-						return nil, fmt.Errorf("unable to determine Go type for %s.%s: %w", o.OperationID, contentTypeName, err)
+						return nil, fmt.Errorf(
+							"unable to determine Go type for %s.%s: %w", o.OperationID,
+							contentTypeName, err,
+						)
 					}
 
 					var typeName string
@@ -352,7 +361,9 @@ func (r RequestBodyDefinition) TypeDef(opID string) *TypeDefinition {
 
 // FilterParameterDefinitionByType returns params which match the the type with
 // in.
-func FilterParameterDefinitionByType(params []ParameterDefinition, in string) []ParameterDefinition {
+func FilterParameterDefinitionByType(
+	params []ParameterDefinition, in string,
+) []ParameterDefinition {
 	var out []ParameterDefinition
 	for _, p := range params {
 		if p.In == in {
@@ -372,8 +383,10 @@ func OperationDefinitions(swagger *openapi3.T) ([]OperationDefinition, error) {
 		// are shared by all methods.
 		globalParams, err := DescribeParameters(pathItem.Parameters, nil)
 		if err != nil {
-			return nil, fmt.Errorf("error describing global parameters for %s: %s",
-				requestPath, err)
+			return nil, fmt.Errorf(
+				"error describing global parameters for %s: %s",
+				requestPath, err,
+			)
 		}
 
 		var pathMiddlewares []string
@@ -398,17 +411,23 @@ func OperationDefinitions(swagger *openapi3.T) ([]OperationDefinition, error) {
 			if op.OperationID == "" {
 				op.OperationID, err = generateDefaultOperationID(opName, requestPath)
 				if err != nil {
-					return nil, fmt.Errorf("error generating default OperationID for %s/%s: %s",
-						opName, requestPath, err)
+					return nil, fmt.Errorf(
+						"error generating default OperationID for %s/%s: %s",
+						opName, requestPath, err,
+					)
 				}
 			}
 
 			// These are parameters defined for the specific path method that
 			// we're iterating over.
-			localParams, err := DescribeParameters(op.Parameters, []string{op.OperationID + "Params"})
+			localParams, err := DescribeParameters(
+				op.Parameters, []string{op.OperationID + "Params"},
+			)
 			if err != nil {
-				return nil, fmt.Errorf("error describing global parameters for %s/%s: %s",
-					opName, requestPath, err)
+				return nil, fmt.Errorf(
+					"error describing global parameters for %s/%s: %s",
+					opName, requestPath, err,
+				)
 			}
 			// All the parameters required by a handler are the union of the
 			// global parameters and the local parameters.
@@ -432,7 +451,9 @@ func OperationDefinitions(swagger *openapi3.T) ([]OperationDefinition, error) {
 				middlewares = append(middlewares, opMiddlewares...)
 			}
 
-			bodyDefinitions, typeDefinitions, err := GenerateBodyDefinitions(op.OperationID, op.RequestBody)
+			bodyDefinitions, typeDefinitions, err := GenerateBodyDefinitions(
+				op.OperationID, op.RequestBody,
+			)
 			if err != nil {
 				return nil, fmt.Errorf("error generating body definitions: %w", err)
 			}
@@ -477,7 +498,9 @@ func OperationDefinitions(swagger *openapi3.T) ([]OperationDefinition, error) {
 			}
 
 			// Generate all the type definitions needed for this operation
-			opDef.TypeDefinitions = append(opDef.TypeDefinitions, GenerateTypeDefsForOperation(opDef)...)
+			opDef.TypeDefinitions = append(
+				opDef.TypeDefinitions, GenerateTypeDefsForOperation(opDef)...,
+			)
 
 			operations = append(operations, opDef)
 		}
@@ -507,7 +530,9 @@ func generateDefaultOperationID(opName string, requestPath string) (string, erro
 
 // GenerateBodyDefinitions returns  the Swagger body definitions into a list of
 // our body definitions which will be used for code generation.
-func GenerateBodyDefinitions(operationID string, bodyOrRef *openapi3.RequestBodyRef) ([]RequestBodyDefinition, []TypeDefinition, error) {
+func GenerateBodyDefinitions(
+	operationID string, bodyOrRef *openapi3.RequestBodyRef,
+) ([]RequestBodyDefinition, []TypeDefinition, error) {
 	if bodyOrRef == nil {
 		return nil, nil, nil
 	}
@@ -539,7 +564,9 @@ func GenerateBodyDefinitions(operationID string, bodyOrRef *openapi3.RequestBody
 			// Convert the reference path to Go type
 			refType, err := RefPathToGoType(bodyOrRef.Ref)
 			if err != nil {
-				return nil, nil, fmt.Errorf("error turning reference (%s) into a Go type: %w", bodyOrRef.Ref, err)
+				return nil, nil, fmt.Errorf(
+					"error turning reference (%s) into a Go type: %w", bodyOrRef.Ref, err,
+				)
 			}
 			bodySchema.RefType = refType
 		}
@@ -606,17 +633,19 @@ func GenerateParamsTypes(op OperationDefinition) []TypeDefinition {
 		if pSchema.HasAdditionalProperties {
 			propRefName := strings.Join([]string{typeName, param.GoName()}, "_")
 			pSchema.RefType = propRefName
-			typeDefs = append(typeDefs, TypeDefinition{
-				TypeName: propRefName,
-				Schema:   param.Schema,
-			})
+			typeDefs = append(
+				typeDefs, TypeDefinition{
+					TypeName: propRefName,
+					Schema:   param.Schema,
+				},
+			)
 		}
 		prop := Property{
 			Description:    param.Spec.Description,
 			JSONFieldName:  param.ParamName,
 			Required:       param.Required,
 			Schema:         pSchema,
-			ExtensionProps: &param.Spec.ExtensionProps,
+			ExtensionProps: param.Spec.Extensions,
 		}
 		s.Properties = append(s.Properties, prop)
 	}
@@ -636,7 +665,11 @@ func GenerateTypesForOperations(t *template.Template, ops []OperationDefinition)
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 
-	addTypes, err := GenerateTemplates([]string{"param-types.tmpl", "request-bodies.tmpl", "response-bodies.tmpl"}, t, ops)
+	addTypes, err := GenerateTemplates(
+		[]string{
+			"param-types.tmpl", "request-bodies.tmpl", "response-bodies.tmpl",
+		}, t, ops,
+	)
 	if err != nil {
 		return "", fmt.Errorf("error generating type boilerplate for operations: %w", err)
 	}
@@ -652,15 +685,21 @@ func GenerateTypesForOperations(t *template.Template, ops []OperationDefinition)
 
 	addProps, err := GenerateAdditionalPropertyBoilerplate(t, td)
 	if err != nil {
-		return "", fmt.Errorf("error generating additional properties boilerplate for operations: %w", err)
+		return "", fmt.Errorf(
+			"error generating additional properties boilerplate for operations: %w", err,
+		)
 	}
 
 	if _, err := w.WriteString("\n"); err != nil {
-		return "", fmt.Errorf("error generating additional properties boilerplate for operations: %w", err)
+		return "", fmt.Errorf(
+			"error generating additional properties boilerplate for operations: %w", err,
+		)
 	}
 
 	if _, err := w.WriteString(addProps); err != nil {
-		return "", fmt.Errorf("error generating additional properties boilerplate for operations: %w", err)
+		return "", fmt.Errorf(
+			"error generating additional properties boilerplate for operations: %w", err,
+		)
 	}
 
 	if err = w.Flush(); err != nil {
@@ -672,7 +711,9 @@ func GenerateTypesForOperations(t *template.Template, ops []OperationDefinition)
 
 // GenerateChiServer generates codee for the chi server for ops.
 func GenerateChiServer(t *template.Template, operations []OperationDefinition) (string, error) {
-	return GenerateTemplates([]string{"interface.tmpl", "middleware.tmpl", "handler.tmpl"}, t, operations)
+	return GenerateTemplates(
+		[]string{"interface.tmpl", "middleware.tmpl", "handler.tmpl"}, t, operations,
+	)
 }
 
 // GenerateTemplates generates templates
